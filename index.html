@@ -75,11 +75,8 @@
         <button id="saveCategory">Kategorie speichern</button>
       </div>
     </div>
-
-    <button id="exportPDF" class="export-btn">📄 PDF Export</button>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script>
     // Standard-Kategorien mit Prozenten
     const defaultCategories = {
@@ -125,8 +122,7 @@
         }
       });
 
-      // Initialize with default budget
-      setBudget();
+      // Don't auto-set budget - let user input it
     }
 
     function setBudget() {
@@ -236,6 +232,7 @@
           
           [description, price, status].forEach(input => {
             input.addEventListener('input', () => updateExpenses(name));
+            input.addEventListener('change', () => updateExpenses(name));
           });
         });
       }, 100);
@@ -268,6 +265,7 @@
       const inputs = newRow.querySelectorAll('input, select');
       inputs.forEach(input => {
         input.addEventListener('input', () => updateExpenses(categoryName));
+        input.addEventListener('change', () => updateExpenses(categoryName));
       });
     }
 
@@ -443,19 +441,6 @@
         updateBudgetChart();
       }
     }
-
-    // Export functionality
-    document.getElementById('exportPDF').addEventListener('click', () => {
-      const element = document.getElementById('planner');
-      const opt = {
-        margin: 1,
-        filename: 'hochzeitsplaner.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(element).save();
-    });
 
     // Initialize the application
     init();
