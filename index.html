@@ -4,203 +4,461 @@
   <meta charset="UTF-8" />
   <title>Hochzeitsplaner</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="container" id="planner">
-    <h1>Hochzeitsplaner & Budgetrechner</h1>
+    <h1>💒 Hochzeitsplaner & Budgetrechner</h1>
 
-    <label for="date">Hochzeitsdatum:</label>
-    <input type="date" id="date" />
-
-    <label for="budget">Gesamtbudget (€):</label>
-    <div class="budget-input-container">
-      <input type="number" id="budgetInputField" min="0" max="50000" step="100" value="25000" />
+    <!-- Budget Setup Section -->
+    <div class="budget-setup" id="budgetSetup">
+      <h2>Euer Hochzeitsbudget festlegen</h2>
+      <div class="budget-input-group">
+        <label for="totalBudget">Gesamtbudget (€):</label>
+        <input type="number" id="totalBudget" min="1000" max="100000" step="100" value="25000" />
+        <button id="setBudget">Budget festlegen</button>
+      </div>
     </div>
-    <input type="range" id="budget" min="0" max="50000" step="100" value="25000" />
 
-    <div id="usedBudgetDisplay">Verteiltes Budget: 0 €</div>
-    <div id="freeBudgetDisplay">Freies Budget: 0 €</div>
+    <!-- Main Budget Display -->
+    <div class="budget-overview" id="budgetOverview" style="display: none;">
+      <div class="budget-header">
+        <h2>💰 Euer Hochzeitsbudget: <span id="displayBudget">25.000</span> €</h2>
+        <div class="budget-stats">
+          <div class="stat-item">
+            <span class="stat-label">Ausgegeben:</span>
+            <span class="stat-value spent" id="totalSpent">0 €</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Geplant:</span>
+            <span class="stat-value planned" id="totalPlanned">0 €</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Verbleibend:</span>
+            <span class="stat-value remaining" id="totalRemaining">25.000 €</span>
+          </div>
+        </div>
+      </div>
 
-    <h2>Budgetverteilung</h2>
-    <div id="categories"></div>
+      <!-- Budget Chart -->
+      <div class="chart-container">
+        <canvas id="budgetChart"></canvas>
+      </div>
 
-    <h2>Zeitstrahl (Kalenderwochen)</h2>
-    <table id="timelineTable">
-      <thead>
-        <tr>
-          <th>KW</th>
-          <th>KW</th>
-          <th>KW</th>
-          <th>KW</th>
-          <th>KW</th>
-        </tr>
-      </thead>
-      <tbody id="timelineBody"></tbody>
-    </table>
+      <!-- Categories Section -->
+      <div class="categories-section">
+        <div class="categories-header">
+          <h2>📋 Budgetkategorien</h2>
+          <button id="addCategory" class="add-btn">+ Neue Kategorie</button>
+        </div>
+        <div id="categories"></div>
+      </div>
+    </div>
 
-    <button id="exportPDF">PDF Export</button>
+    <!-- Add Category Modal -->
+    <div id="categoryModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Neue Kategorie hinzufügen</h3>
+        <div class="form-group">
+          <label for="newCategoryName">Kategoriename:</label>
+          <input type="text" id="newCategoryName" placeholder="z.B. Location & Catering">
+        </div>
+        <div class="form-group">
+          <label for="newCategoryBudget">Budget (€):</label>
+          <input type="number" id="newCategoryBudget" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label for="newCategoryColor">Farbe:</label>
+          <input type="color" id="newCategoryColor" value="#b77d5a">
+        </div>
+        <button id="saveCategory">Kategorie speichern</button>
+      </div>
+    </div>
+
+    <button id="exportPDF" class="export-btn">📄 PDF Export</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script>
-    const perc = {
-      "Location & Catering": { percent: 45, months: 12, color: "#b77d5a" },
-      "Outfits": { percent: 15, months: 6, color: "#d1a684" },
-      "Foto & Video": { percent: 10, months: 10, color: "#aa7f66" },
-      "Sonstiges": { percent: 10, months: 7, color: "#c4a69f" },
-      "Eheringe": { percent: 10, months: 6, color: "#e0c097" },
-      "Drucksachen": { percent: 5, months: 5, color: "#deb887" },
-      "Blumen & Deko": { percent: 5, months: 3, color: "#c9b29b" }
+    // Standard-Kategorien mit Prozenten
+    const defaultCategories = {
+      "Location & Catering": { percent: 45, color: "#b77d5a" },
+      "Outfits": { percent: 15, color: "#d1a684" },
+      "Foto & Video": { percent: 10, color: "#aa7f66" },
+      "Sonstiges": { percent: 10, color: "#c4a69f" },
+      "Eheringe": { percent: 10, color: "#e0c097" },
+      "Drucksachen": { percent: 5, color: "#deb887" },
+      "Blumen & Deko": { percent: 5, color: "#c9b29b" }
     };
 
-    const dateInput = document.getElementById("date");
-    const budgetInput = document.getElementById("budget");
-    const budgetInputField = document.getElementById("budgetInputField");
-    const usedBudgetDisplay = document.getElementById("usedBudgetDisplay");
-    const freeBudgetDisplay = document.getElementById("freeBudgetDisplay");
-    const catDiv = document.getElementById("categories");
-    const timelineBody = document.getElementById("timelineBody");
-    const exportBtn = document.getElementById("exportPDF");
+    let categories = {};
+    let totalBudget = 25000;
+    let budgetChart = null;
 
-    let categoryValues = {};
+    // DOM Elements
+    const budgetSetup = document.getElementById('budgetSetup');
+    const budgetOverview = document.getElementById('budgetOverview');
+    const totalBudgetInput = document.getElementById('totalBudget');
+    const setBudgetBtn = document.getElementById('setBudget');
+    const displayBudget = document.getElementById('displayBudget');
+    const totalSpent = document.getElementById('totalSpent');
+    const totalPlanned = document.getElementById('totalPlanned');
+    const totalRemaining = document.getElementById('totalRemaining');
+    const categoriesContainer = document.getElementById('categories');
+    const addCategoryBtn = document.getElementById('addCategory');
+    const categoryModal = document.getElementById('categoryModal');
+    const closeModal = document.querySelector('.close');
+    const saveCategoryBtn = document.getElementById('saveCategory');
 
-    function getWeekNumber(d) {
-      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      const dayNum = d.getUTCDay() || 7;
-      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    // Initialize
+    function init() {
+      setBudgetBtn.addEventListener('click', setBudget);
+      addCategoryBtn.addEventListener('click', showAddCategoryModal);
+      closeModal.addEventListener('click', hideAddCategoryModal);
+      saveCategoryBtn.addEventListener('click', saveNewCategory);
+      
+      // Close modal when clicking outside
+      window.addEventListener('click', (e) => {
+        if (e.target === categoryModal) {
+          hideAddCategoryModal();
+        }
+      });
+
+      // Initialize with default budget
+      setBudget();
     }
 
-    function updateBudget() {
-      const b = +budgetInput.value;
-      budgetInputField.value = b;
-      updateUsedBudget();
+    function setBudget() {
+      totalBudget = parseFloat(totalBudgetInput.value) || 25000;
+      displayBudget.textContent = totalBudget.toLocaleString('de-DE');
+      
+      budgetSetup.style.display = 'none';
+      budgetOverview.style.display = 'block';
+      
+      // Initialize categories with default values
+      initializeCategories();
       renderCategories();
-      updateTimeline();
+      updateBudgetStats();
+      createBudgetChart();
     }
 
-    function updateBudgetField() {
-      let b = +budgetInputField.value;
-      if (isNaN(b) || b < 0) b = 0;
-      if (b > 50000) b = 50000;
-      budgetInput.value = b;
-      updateBudget();
+    function initializeCategories() {
+      categories = {};
+      for (const [name, config] of Object.entries(defaultCategories)) {
+        categories[name] = {
+          name: name,
+          budget: totalBudget * config.percent / 100,
+          color: config.color,
+          expenses: []
+        };
+      }
     }
 
     function renderCategories() {
-      const b = +budgetInput.value;
-      catDiv.innerHTML = "";
-
-      for (const c in perc) {
-        const val = categoryValues[c] || (b * perc[c].percent / 100);
-        categoryValues[c] = val;
-
-        const percent = ((val / b) * 100).toFixed(2);
-
-        const div = document.createElement("div");
-        div.className = "tile";
-        div.style.background = perc[c].color;
-
-        div.innerHTML = `
-          <button class="delete-btn" data-cat="${c}">✖</button>
-          <h3>${c}</h3>
-          <p>
-            <input type="number" id="${c}-input" min="0" max="${b}" step="0.01" value="${val.toFixed(2)}"> € 
-            (<span id="${c}-percent">${percent}</span> %)
-          </p>
-          <input type="range" id="${c}-slider" min="0" max="${b}" step="0.01" value="${val}">
-        `;
-
-        catDiv.appendChild(div);
-
-        const slider = document.getElementById(`${c}-slider`);
-        const inputField = document.getElementById(`${c}-input`);
-        const percentSpan = document.getElementById(`${c}-percent`);
-
-        slider.addEventListener("input", (e) => {
-          adjustCategory(c, +e.target.value);
-          percentSpan.textContent = ((categoryValues[c] / +budgetInput.value) * 100).toFixed(2);
-        });
-
-        inputField.addEventListener("input", (e) => {
-          const newValue = +e.target.value;
-          adjustCategory(c, newValue);
-          percentSpan.textContent = ((categoryValues[c] / +budgetInput.value) * 100).toFixed(2);
-        });
-
-        const deleteBtn = div.querySelector(".delete-btn");
-        deleteBtn.addEventListener("click", () => deleteCategory(c));
+      categoriesContainer.innerHTML = '';
+      
+      for (const [name, category] of Object.entries(categories)) {
+        const categoryElement = createCategoryElement(name, category);
+        categoriesContainer.appendChild(categoryElement);
       }
-
-      updateUsedBudget();
     }
 
-    function adjustCategory(category, newValue) {
-      const b = +budgetInput.value;
-      let totalUsedOther = Object.entries(categoryValues)
-        .filter(([key]) => key !== category)
-        .reduce((a, [k, v]) => a + v, 0);
+    function createCategoryElement(name, category) {
+      const spent = category.expenses.filter(e => e.status === 'bought').reduce((sum, e) => sum + e.price, 0);
+      const planned = category.expenses.filter(e => e.status === 'planned').reduce((sum, e) => sum + e.price, 0);
+      const remaining = category.budget - spent;
+      const progressPercent = ((spent + planned) / category.budget) * 100;
+      const spentPercent = (spent / category.budget) * 100;
 
-      const maxAllowed = b - totalUsedOther;
-      const val = Math.min(newValue, maxAllowed);
-      categoryValues[category] = val;
+      const div = document.createElement('div');
+      div.className = 'category-tile';
+      div.style.borderLeftColor = category.color;
+      
+      div.innerHTML = `
+        <div class="category-header">
+          <h3>${name}</h3>
+          <div class="category-actions">
+            <button class="expand-btn" onclick="toggleExpenses('${name}')">📋</button>
+            <button class="delete-btn" onclick="deleteCategory('${name}')">✖</button>
+          </div>
+        </div>
+        
+        <div class="category-budget">
+          <div class="budget-info">
+            <span class="budget-amount">${category.budget.toLocaleString('de-DE')} €</span>
+            <span class="budget-remaining">Rest: ${remaining.toLocaleString('de-DE')} €</span>
+          </div>
+          
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="progress-spent" style="width: ${spentPercent}%; background-color: ${category.color}"></div>
+              <div class="progress-planned" style="width: ${progressPercent - spentPercent}%; background-color: ${category.color}80"></div>
+            </div>
+            <span class="progress-text">${progressPercent.toFixed(1)}%</span>
+          </div>
+        </div>
+        
+        <div class="expenses-section hidden" id="expenses-${name}">
+          <div class="expenses-header">
+            <h4>Ausgaben</h4>
+            <button class="add-expense-btn" onclick="addExpenseRow('${name}')">+ Ausgabe hinzufügen</button>
+          </div>
+          <div class="expenses-table">
+            <div class="expense-header">
+              <span>Beschreibung</span>
+              <span>Preis (€)</span>
+              <span>Status</span>
+              <span>Aktion</span>
+            </div>
+            <div class="expense-rows" id="expense-rows-${name}">
+              <div class="expense-row">
+                <input type="text" placeholder="Beschreibung" class="expense-description">
+                <input type="number" placeholder="0.00" step="0.01" class="expense-price">
+                <select class="expense-status">
+                  <option value="planned">Geplant</option>
+                  <option value="bought">Gekauft</option>
+                </select>
+                <button class="delete-expense-btn" onclick="deleteExpenseRow(this)">✖</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
 
+      // Add event listeners for expense inputs
+      setTimeout(() => {
+        const expenseRows = div.querySelectorAll('.expense-row');
+        expenseRows.forEach(row => {
+          const description = row.querySelector('.expense-description');
+          const price = row.querySelector('.expense-price');
+          const status = row.querySelector('.expense-status');
+          
+          [description, price, status].forEach(input => {
+            input.addEventListener('input', () => updateExpenses(name));
+          });
+        });
+      }, 100);
+
+      return div;
+    }
+
+    function toggleExpenses(categoryName) {
+      const expensesSection = document.getElementById(`expenses-${categoryName}`);
+      expensesSection.classList.toggle('hidden');
+    }
+
+    function addExpenseRow(categoryName) {
+      const expenseRows = document.getElementById(`expense-rows-${categoryName}`);
+      const newRow = document.createElement('div');
+      newRow.className = 'expense-row';
+      newRow.innerHTML = `
+        <input type="text" placeholder="Beschreibung" class="expense-description">
+        <input type="number" placeholder="0.00" step="0.01" class="expense-price">
+        <select class="expense-status">
+          <option value="planned">Geplant</option>
+          <option value="bought">Gekauft</option>
+        </select>
+        <button class="delete-expense-btn" onclick="deleteExpenseRow(this)">✖</button>
+      `;
+      
+      expenseRows.appendChild(newRow);
+      
+      // Add event listeners
+      const inputs = newRow.querySelectorAll('input, select');
+      inputs.forEach(input => {
+        input.addEventListener('input', () => updateExpenses(categoryName));
+      });
+    }
+
+    function deleteExpenseRow(button) {
+      const row = button.parentElement;
+      const categoryName = row.closest('.category-tile').querySelector('h3').textContent;
+      row.remove();
+      updateExpenses(categoryName);
+    }
+
+    function updateExpenses(categoryName) {
+      const category = categories[categoryName];
+      const expenseRows = document.querySelectorAll(`#expense-rows-${categoryName} .expense-row`);
+      
+      category.expenses = [];
+      
+      expenseRows.forEach(row => {
+        const description = row.querySelector('.expense-description').value;
+        const price = parseFloat(row.querySelector('.expense-price').value) || 0;
+        const status = row.querySelector('.expense-status').value;
+        
+        if (description && price > 0) {
+          category.expenses.push({
+            description: description,
+            price: price,
+            status: status
+          });
+        }
+      });
+      
       renderCategories();
+      updateBudgetStats();
+      updateBudgetChart();
     }
 
-    function updateUsedBudget() {
-      const used = Object.values(categoryValues).reduce((a, v) => a + v, 0);
-      usedBudgetDisplay.textContent = `Verteiltes Budget: ${used.toFixed(2)} €`;
-
-      const totalBudget = +budgetInput.value;
-      const free = totalBudget - used;
-      freeBudgetDisplay.textContent = `Freies Budget: ${free.toFixed(2)} €`;
-    }
-
-    function updateTimeline() {
-      timelineBody.innerHTML = "";
-      const date = dateInput.value ? new Date(dateInput.value) : new Date();
-      const startWeek = getWeekNumber(new Date(date.getFullYear(), 0, 1));
-      const totalWeeks = 52;
-
-      let row = document.createElement("tr");
-      for (let i = 0; i < totalWeeks; i++) {
-        const cell = document.createElement("td");
-        const kw = (startWeek + i) % totalWeeks || totalWeeks;
-        cell.textContent = `KW${kw}`;
-        row.appendChild(cell);
+    function updateBudgetStats() {
+      let totalSpentAmount = 0;
+      let totalPlannedAmount = 0;
+      
+      for (const category of Object.values(categories)) {
+        const spent = category.expenses.filter(e => e.status === 'bought').reduce((sum, e) => sum + e.price, 0);
+        const planned = category.expenses.filter(e => e.status === 'planned').reduce((sum, e) => sum + e.price, 0);
+        totalSpentAmount += spent;
+        totalPlannedAmount += planned;
       }
-      timelineBody.appendChild(row);
+      
+      const remaining = totalBudget - totalSpentAmount;
+      
+      totalSpent.textContent = totalSpentAmount.toLocaleString('de-DE') + ' €';
+      totalPlanned.textContent = totalPlannedAmount.toLocaleString('de-DE') + ' €';
+      totalRemaining.textContent = remaining.toLocaleString('de-DE') + ' €';
     }
 
-    function deleteCategory(category) {
-      delete perc[category];
-      delete categoryValues[category];
+    function createBudgetChart() {
+      const ctx = document.getElementById('budgetChart').getContext('2d');
+      
+      if (budgetChart) {
+        budgetChart.destroy();
+      }
+      
+      const chartData = {
+        labels: [],
+        datasets: [{
+          data: [],
+          backgroundColor: [],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      };
+      
+      for (const [name, category] of Object.entries(categories)) {
+        const spent = category.expenses.filter(e => e.status === 'bought').reduce((sum, e) => sum + e.price, 0);
+        const planned = category.expenses.filter(e => e.status === 'planned').reduce((sum, e) => sum + e.price, 0);
+        const remaining = category.budget - spent - planned;
+        
+        if (spent > 0) {
+          chartData.labels.push(`${name} (Ausgegeben)`);
+          chartData.datasets[0].data.push(spent);
+          chartData.datasets[0].backgroundColor.push(category.color);
+        }
+        
+        if (planned > 0) {
+          chartData.labels.push(`${name} (Geplant)`);
+          chartData.datasets[0].data.push(planned);
+          chartData.datasets[0].backgroundColor.push(category.color + '80');
+        }
+        
+        if (remaining > 0) {
+          chartData.labels.push(`${name} (Verbleibend)`);
+          chartData.datasets[0].data.push(remaining);
+          chartData.datasets[0].backgroundColor.push(category.color + '40');
+        }
+      }
+      
+      budgetChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: chartData,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const value = context.parsed;
+                  const percentage = ((value / totalBudget) * 100).toFixed(1);
+                  return `${label}: ${value.toLocaleString('de-DE')} € (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
 
-      updateUsedBudget();
+    function updateBudgetChart() {
+      if (budgetChart) {
+        createBudgetChart();
+      }
+    }
+
+    function showAddCategoryModal() {
+      categoryModal.style.display = 'block';
+    }
+
+    function hideAddCategoryModal() {
+      categoryModal.style.display = 'none';
+      document.getElementById('newCategoryName').value = '';
+      document.getElementById('newCategoryBudget').value = '';
+      document.getElementById('newCategoryColor').value = '#b77d5a';
+    }
+
+    function saveNewCategory() {
+      const name = document.getElementById('newCategoryName').value.trim();
+      const budget = parseFloat(document.getElementById('newCategoryBudget').value) || 0;
+      const color = document.getElementById('newCategoryColor').value;
+      
+      if (!name) {
+        alert('Bitte geben Sie einen Kategorienamen ein.');
+        return;
+      }
+      
+      if (budget <= 0) {
+        alert('Bitte geben Sie ein gültiges Budget ein.');
+        return;
+      }
+      
+      categories[name] = {
+        name: name,
+        budget: budget,
+        color: color,
+        expenses: []
+      };
+      
+      hideAddCategoryModal();
       renderCategories();
-      updateTimeline();
+      updateBudgetStats();
+      updateBudgetChart();
     }
 
-    budgetInput.addEventListener("input", updateBudget);
-    budgetInputField.addEventListener("input", updateBudgetField);
-    dateInput.addEventListener("change", updateTimeline);
+    function deleteCategory(categoryName) {
+      if (confirm(`Möchten Sie die Kategorie "${categoryName}" wirklich löschen?`)) {
+        delete categories[categoryName];
+        renderCategories();
+        updateBudgetStats();
+        updateBudgetChart();
+      }
+    }
 
-    exportBtn.addEventListener("click", () => {
-      const element = document.getElementById("planner");
+    // Export functionality
+    document.getElementById('exportPDF').addEventListener('click', () => {
+      const element = document.getElementById('planner');
       const opt = {
-        margin:       1,
-        filename:     'hochzeitsplaner.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        margin: 1,
+        filename: 'hochzeitsplaner.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
       };
       html2pdf().set(opt).from(element).save();
     });
 
-    updateBudget();
-    updateTimeline();
+    // Initialize the application
+    init();
   </script>
 </body>
 </html>
