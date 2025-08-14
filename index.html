@@ -24,25 +24,29 @@
     <div class="budget-overview" id="budgetOverview" style="display: none;">
       <div class="budget-header">
         <h2>💰 Euer Hochzeitsbudget: <span id="displayBudget">25.000</span> €</h2>
-        <div class="budget-stats">
-          <div class="stat-item">
-            <span class="stat-label">Ausgegeben:</span>
-            <span class="stat-value spent" id="totalSpent">0 €</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Geplant:</span>
-            <span class="stat-value planned" id="totalPlanned">0 €</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Verbleibend:</span>
-            <span class="stat-value remaining" id="totalRemaining">25.000 €</span>
-          </div>
-        </div>
       </div>
 
       <!-- Budget Chart -->
       <div class="chart-container">
-        <canvas id="budgetChart"></canvas>
+        <div class="chart-layout">
+          <div class="budget-stats-sidebar">
+            <div class="stat-item-sidebar">
+              <span class="stat-label">Ausgegeben:</span>
+              <span class="stat-value spent" id="totalSpent">0 €</span>
+            </div>
+            <div class="stat-item-sidebar">
+              <span class="stat-label">Geplant:</span>
+              <span class="stat-value planned" id="totalPlanned">0 €</span>
+            </div>
+            <div class="stat-item-sidebar">
+              <span class="stat-label">Verbleibend:</span>
+              <span class="stat-value remaining" id="totalRemaining">25.000 €</span>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="budgetChart"></canvas>
+          </div>
+        </div>
       </div>
 
       <!-- Categories Section -->
@@ -70,7 +74,7 @@
         </div>
         <div class="form-group">
           <label for="newCategoryColor">Farbe:</label>
-          <input type="color" id="newCategoryColor" value="#b77d5a">
+          <input type="color" id="newCategoryColor" value="#d4a574">
         </div>
         <button id="saveCategory">Kategorie speichern</button>
       </div>
@@ -80,13 +84,13 @@
   <script>
     // Standard-Kategorien mit Prozenten
     const defaultCategories = {
-      "Location & Catering": { percent: 45, color: "#b77d5a" },
-      "Outfits": { percent: 15, color: "#d1a684" },
-      "Foto & Video": { percent: 10, color: "#aa7f66" },
-      "Sonstiges": { percent: 10, color: "#c4a69f" },
-      "Eheringe": { percent: 10, color: "#e0c097" },
-      "Drucksachen": { percent: 5, color: "#deb887" },
-      "Blumen & Deko": { percent: 5, color: "#c9b29b" }
+      "Location & Catering": { percent: 45, color: "#d4a574" },
+      "Outfits": { percent: 15, color: "#c8b8a0" },
+      "Foto & Video": { percent: 10, color: "#b8a898" },
+      "Sonstiges": { percent: 10, color: "#d2c4b6" },
+      "Eheringe": { percent: 10, color: "#e6d5c3" },
+      "Drucksachen": { percent: 5, color: "#c4b5a0" },
+      "Blumen & Deko": { percent: 5, color: "#d8c8b8" }
     };
 
     let categories = {};
@@ -222,20 +226,25 @@
         </div>
       `;
 
-      // Add event listeners for expense inputs
-      setTimeout(() => {
-        const expenseRows = div.querySelectorAll('.expense-row');
-        expenseRows.forEach(row => {
-          const description = row.querySelector('.expense-description');
-          const price = row.querySelector('.expense-price');
-          const status = row.querySelector('.expense-status');
-          
-          [description, price, status].forEach(input => {
-            input.addEventListener('input', () => updateExpenses(name));
-            input.addEventListener('change', () => updateExpenses(name));
-          });
-        });
-      }, 100);
+             // Add event listeners for expense inputs immediately
+       const expenseRows = div.querySelectorAll('.expense-row');
+       expenseRows.forEach(row => {
+         const description = row.querySelector('.expense-description');
+         const price = row.querySelector('.expense-price');
+         const status = row.querySelector('.expense-status');
+         
+         if (description) {
+           description.addEventListener('input', () => updateExpenses(name));
+           description.addEventListener('change', () => updateExpenses(name));
+         }
+         if (price) {
+           price.addEventListener('input', () => updateExpenses(name));
+           price.addEventListener('change', () => updateExpenses(name));
+         }
+         if (status) {
+           status.addEventListener('change', () => updateExpenses(name));
+         }
+       });
 
       return div;
     }
@@ -402,7 +411,7 @@
       categoryModal.style.display = 'none';
       document.getElementById('newCategoryName').value = '';
       document.getElementById('newCategoryBudget').value = '';
-      document.getElementById('newCategoryColor').value = '#b77d5a';
+      document.getElementById('newCategoryColor').value = '#d4a574';
     }
 
     function saveNewCategory() {
