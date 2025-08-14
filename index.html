@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hochzeitsplaner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container" id="planner">
+    <h1>Hochzeitsplaner & Budgetrechner</h1>
+
+    <label for="date">Hochzeitsdatum:</label>
+    <input type="date" id="date" />
+
+    <label for="budget">Gesamtbudget (€):</label>
+    <div class="budget-input-container">
+      <input type="number" id="budgetInputField" min="0" max="50000" step="100" value="25000" />
+    </div>
+    <input type="range" id="budget" min="0" max="50000" step="100" value="25000" />
+
+    <div id="usedBudgetDisplay">Verteiltes Budget: 0 €</div>
+    <div id="freeBudgetDisplay">Freies Budget: 0 €</div>
+
+    <h2>Budgetverteilung</h2>
+    <div id="categories"></div>
+
+    <h2>Zeitstrahl (Kalenderwochen)</h2>
+    <table id="timelineTable">
+      <thead>
+        <tr>
+          <th>KW</th>
+          <th>KW</th>
+          <th>KW</th>
+          <th>KW</th>
+          <th>KW</th>
+        </tr>
+      </thead>
+      <tbody id="timelineBody"></tbody>
+    </table>
+
+    <button id="exportPDF">PDF Export</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    const perc = {
+      "Location & Catering": { percent: 45, months: 12, color: "#b77d5a" },
+      "Outfits": { percent: 15, months: 6, color: "#d1a684" },
+      "Foto & Video": { percent: 10, months: 10, color: "#aa7f66" },
+      "Sonstiges": { percent: 10, months: 7, color: "#c4a69f" },
+      "Eheringe": { percent: 10, months: 6, color: "#e0c097" },
+      "Drucksachen": { percent: 5, months: 5, color: "#deb887" },
+      "Blumen & Deko": { percent: 5, months: 3, color: "#c9b29b" }
+    };
+
+    const dateInput = document.getElementById("date");
+    const budgetInput = document.getElementById("budget");
+    const budgetInputField = document.getElementById("budgetInputField");
+    const usedBudgetDisplay = document.getElementById("usedBudgetDisplay");
+    const freeBudgetDisplay = document.getElementById("freeBudgetDisplay");
+    const catDiv = document.getElementById("categories");
+    const timelineBody = document.getElementById("timelineBody");
+    const exportBtn = document.getElementById("exportPDF");
+
+    let categoryValues = {};
+
+    function getWeekNumber(d) {
+      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function updateBudget() {
+      const b = +budgetInput.value;
+      budgetInputField.value = b;
+      updateUsedBudget();
+      renderCategories();
+      updateTimeline();
+    }
+
+    function updateBudgetField() {
+      let b = +budgetInputField.value;
+      if (isNaN(b) || b < 0) b = 0;
+      if (b > 50000) b = 50000;
+      budgetInput.value = b;
+      updateBudget();
+    }
+
+    function renderCategories() {
+      const b = +budgetInput.value;
+      catDiv.innerHTML = "";
+
+      for (const c in perc) {
+        const val = categoryValues[c] || (b * perc[c].percent / 100);
+        categoryValues[c] = val;
+
+        const percent = ((val / b) * 100).toFixed(2);
+
+        const div = document.createElement("div");
+        div.className = "tile";
+        div.style.background = perc[c].color;
+
+        div.innerHTML = `
+          <button class="delete-btn" data-cat="${c}">✖</button>
+          <h3>${c}</h3>
+          <p>
+            <input type="number" id="${c}-input" min="0" max="${b}" step="0.01" value="${val.toFixed(2)}"> € 
+            (<span id="${c}-percent">${percent}</span> %)
+          </p>
+          <input type="range" id="${c}-slider" min="0" max="${b}" step="0.01" value="${val}">
+        `;
+
+        catDiv.appendChild(div);
+
+        const slider = document.getElementById(`${c}-slider`);
+        const inputField = document.getElementById(`${c}-input`);
+        const percentSpan = document.getElementById(`${c}-percent`);
+
+        slider.addEventListener("input", (e) => {
+          adjustCategory(c, +e.target.value);
+          percentSpan.textContent = ((categoryValues[c] / +budgetInput.value) * 100).toFixed(2);
+        });
+
+        inputField.addEventListener("input", (e) => {
+          const newValue = +e.target.value;
+          adjustCategory(c, newValue);
+          percentSpan.textContent = ((categoryValues[c] / +budgetInput.value) * 100).toFixed(2);
+        });
+
+        const deleteBtn = div.querySelector(".delete-btn");
+        deleteBtn.addEventListener("click", () => deleteCategory(c));
+      }
+
+      updateUsedBudget();
+    }
+
+    function adjustCategory(category, newValue) {
+      const b = +budgetInput.value;
+      let totalUsedOther = Object.entries(categoryValues)
+        .filter(([key]) => key !== category)
+        .reduce((a, [k, v]) => a + v, 0);
+
+      const maxAllowed = b - totalUsedOther;
+      const val = Math.min(newValue, maxAllowed);
+      categoryValues[category] = val;
+
+      renderCategories();
+    }
+
+    function updateUsedBudget() {
+      const used = Object.values(categoryValues).reduce((a, v) => a + v, 0);
+      usedBudgetDisplay.textContent = `Verteiltes Budget: ${used.toFixed(2)} €`;
+
+      const totalBudget = +budgetInput.value;
+      const free = totalBudget - used;
+      freeBudgetDisplay.textContent = `Freies Budget: ${free.toFixed(2)} €`;
+    }
+
+    function updateTimeline() {
+      timelineBody.innerHTML = "";
+      const date = dateInput.value ? new Date(dateInput.value) : new Date();
+      const startWeek = getWeekNumber(new Date(date.getFullYear(), 0, 1));
+      const totalWeeks = 52;
+
+      let row = document.createElement("tr");
+      for (let i = 0; i < totalWeeks; i++) {
+        const cell = document.createElement("td");
+        const kw = (startWeek + i) % totalWeeks || totalWeeks;
+        cell.textContent = `KW${kw}`;
+        row.appendChild(cell);
+      }
+      timelineBody.appendChild(row);
+    }
+
+    function deleteCategory(category) {
+      delete perc[category];
+      delete categoryValues[category];
+
+      updateUsedBudget();
+      renderCategories();
+      updateTimeline();
+    }
+
+    budgetInput.addEventListener("input", updateBudget);
+    budgetInputField.addEventListener("input", updateBudgetField);
+    dateInput.addEventListener("change", updateTimeline);
+
+    exportBtn.addEventListener("click", () => {
+      const element = document.getElementById("planner");
+      const opt = {
+        margin:       1,
+        filename:     'hochzeitsplaner.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    });
+
+    updateBudget();
+    updateTimeline();
+  </script>
+</body>
+</html>
