@@ -186,8 +186,8 @@ h3 {
 }
 
 .chart-wrapper canvas {
-  max-width: 350px;
-  max-height: 250px;
+  max-width: 500px;
+  max-height: 500px;
   height: auto;
 }
 
