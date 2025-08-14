@@ -254,29 +254,39 @@
       expensesSection.classList.toggle('hidden');
     }
 
-    function addExpenseRow(categoryName) {
-      const expenseRows = document.getElementById(`expense-rows-${categoryName}`);
-      const newRow = document.createElement('div');
-      newRow.className = 'expense-row';
-      newRow.innerHTML = `
-        <input type="text" placeholder="Beschreibung" class="expense-description">
-        <input type="number" placeholder="0.00" step="0.01" class="expense-price">
-        <select class="expense-status">
-          <option value="planned">Geplant</option>
-          <option value="bought">Gekauft</option>
-        </select>
-        <button class="delete-expense-btn" onclick="deleteExpenseRow(this)">✖</button>
-      `;
-      
-      expenseRows.appendChild(newRow);
-      
-      // Add event listeners
-      const inputs = newRow.querySelectorAll('input, select');
-      inputs.forEach(input => {
-        input.addEventListener('input', () => updateExpenses(categoryName));
-        input.addEventListener('change', () => updateExpenses(categoryName));
-      });
-    }
+         function addExpenseRow(categoryName) {
+       const expenseRows = document.getElementById(`expense-rows-${categoryName}`);
+       const newRow = document.createElement('div');
+       newRow.className = 'expense-row';
+       newRow.innerHTML = `
+         <input type="text" placeholder="Beschreibung" class="expense-description">
+         <input type="number" placeholder="0.00" step="0.01" class="expense-price">
+         <select class="expense-status">
+           <option value="planned">Geplant</option>
+           <option value="bought">Gekauft</option>
+         </select>
+         <button class="delete-expense-btn" onclick="deleteExpenseRow(this)">✖</button>
+       `;
+       
+       expenseRows.appendChild(newRow);
+       
+       // Add event listeners immediately
+       const description = newRow.querySelector('.expense-description');
+       const price = newRow.querySelector('.expense-price');
+       const status = newRow.querySelector('.expense-status');
+       
+       if (description) {
+         description.addEventListener('input', () => updateExpenses(categoryName));
+         description.addEventListener('change', () => updateExpenses(categoryName));
+       }
+       if (price) {
+         price.addEventListener('input', () => updateExpenses(categoryName));
+         price.addEventListener('change', () => updateExpenses(categoryName));
+       }
+       if (status) {
+         status.addEventListener('change', () => updateExpenses(categoryName));
+       }
+     }
 
     function deleteExpenseRow(button) {
       const row = button.parentElement;
@@ -285,30 +295,36 @@
       updateExpenses(categoryName);
     }
 
-    function updateExpenses(categoryName) {
-      const category = categories[categoryName];
-      const expenseRows = document.querySelectorAll(`#expense-rows-${categoryName} .expense-row`);
-      
-      category.expenses = [];
-      
-      expenseRows.forEach(row => {
-        const description = row.querySelector('.expense-description').value;
-        const price = parseFloat(row.querySelector('.expense-price').value) || 0;
-        const status = row.querySelector('.expense-status').value;
-        
-        if (description && price > 0) {
-          category.expenses.push({
-            description: description,
-            price: price,
-            status: status
-          });
-        }
-      });
-      
-      renderCategories();
-      updateBudgetStats();
-      updateBudgetChart();
-    }
+         function updateExpenses(categoryName) {
+       const category = categories[categoryName];
+       const expenseRows = document.querySelectorAll(`#expense-rows-${categoryName} .expense-row`);
+       
+       category.expenses = [];
+       
+       expenseRows.forEach(row => {
+         const descriptionInput = row.querySelector('.expense-description');
+         const priceInput = row.querySelector('.expense-price');
+         const statusInput = row.querySelector('.expense-status');
+         
+         if (descriptionInput && priceInput && statusInput) {
+           const description = descriptionInput.value;
+           const price = parseFloat(priceInput.value) || 0;
+           const status = statusInput.value;
+           
+           if (description && price > 0) {
+             category.expenses.push({
+               description: description,
+               price: price,
+               status: status
+             });
+           }
+         }
+       });
+       
+       renderCategories();
+       updateBudgetStats();
+       updateBudgetChart();
+     }
 
     function updateBudgetStats() {
       let totalSpentAmount = 0;
