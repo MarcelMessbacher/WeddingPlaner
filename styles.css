@@ -130,15 +130,17 @@ h3 {
 
 .chart-layout {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 40px;
+  min-height: 300px;
 }
 
 .budget-stats-sidebar {
-  flex: 0 0 200px;
+  flex: 0 0 250px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding-top: 20px;
 }
 
 .stat-item-sidebar {
@@ -180,11 +182,12 @@ h3 {
   display: flex;
   justify-content: center;
   align-items: center;
+  max-height: 33vh;
 }
 
 .chart-wrapper canvas {
-  max-width: 400px;
-  max-height: 300px;
+  max-width: 350px;
+  max-height: 250px;
   height: auto;
 }
 

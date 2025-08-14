@@ -171,9 +171,10 @@
       const progressPercent = ((spent + planned) / category.budget) * 100;
       const spentPercent = (spent / category.budget) * 100;
 
-      const div = document.createElement('div');
-      div.className = 'category-tile';
-      div.style.borderLeftColor = category.color;
+             const div = document.createElement('div');
+       div.className = 'category-tile';
+       div.setAttribute('data-category', name);
+       div.style.borderLeftColor = category.color;
       
       div.innerHTML = `
         <div class="category-header">
@@ -321,28 +322,55 @@
          }
        });
        
-       renderCategories();
+       // Update only the budget display, not the entire categories
+       updateCategoryDisplay(categoryName);
        updateBudgetStats();
        updateBudgetChart();
      }
 
-    function updateBudgetStats() {
-      let totalSpentAmount = 0;
-      let totalPlannedAmount = 0;
-      
-      for (const category of Object.values(categories)) {
-        const spent = category.expenses.filter(e => e.status === 'bought').reduce((sum, e) => sum + e.price, 0);
-        const planned = category.expenses.filter(e => e.status === 'planned').reduce((sum, e) => sum + e.price, 0);
-        totalSpentAmount += spent;
-        totalPlannedAmount += planned;
-      }
-      
-      const remaining = totalBudget - totalSpentAmount;
-      
-      totalSpent.textContent = totalSpentAmount.toLocaleString('de-DE') + ' €';
-      totalPlanned.textContent = totalPlannedAmount.toLocaleString('de-DE') + ' €';
-      totalRemaining.textContent = remaining.toLocaleString('de-DE') + ' €';
-    }
+         function updateCategoryDisplay(categoryName) {
+       const category = categories[categoryName];
+       const categoryTile = document.querySelector(`[data-category="${categoryName}"]`);
+       
+       if (categoryTile) {
+         const spent = category.expenses.filter(e => e.status === 'bought').reduce((sum, e) => sum + e.price, 0);
+         const planned = category.expenses.filter(e => e.status === 'planned').reduce((sum, e) => sum + e.price, 0);
+         const remaining = category.budget - spent;
+         const progressPercent = ((spent + planned) / category.budget) * 100;
+         const spentPercent = (spent / category.budget) * 100;
+         
+         // Update budget info
+         const budgetAmount = categoryTile.querySelector('.budget-amount');
+         const budgetRemaining = categoryTile.querySelector('.budget-remaining');
+         const progressSpent = categoryTile.querySelector('.progress-spent');
+         const progressPlanned = categoryTile.querySelector('.progress-planned');
+         const progressText = categoryTile.querySelector('.progress-text');
+         
+         if (budgetAmount) budgetAmount.textContent = category.budget.toLocaleString('de-DE') + ' €';
+         if (budgetRemaining) budgetRemaining.textContent = 'Rest: ' + remaining.toLocaleString('de-DE') + ' €';
+         if (progressSpent) progressSpent.style.width = spentPercent + '%';
+         if (progressPlanned) progressPlanned.style.width = (progressPercent - spentPercent) + '%';
+         if (progressText) progressText.textContent = progressPercent.toFixed(1) + '%';
+       }
+     }
+
+     function updateBudgetStats() {
+       let totalSpentAmount = 0;
+       let totalPlannedAmount = 0;
+       
+       for (const category of Object.values(categories)) {
+         const spent = category.expenses.filter(e => e.status === 'bought').reduce((sum, e) => sum + e.price, 0);
+         const planned = category.expenses.filter(e => e.status === 'planned').reduce((sum, e) => sum + e.price, 0);
+         totalSpentAmount += spent;
+         totalPlannedAmount += planned;
+       }
+       
+       const remaining = totalBudget - totalSpentAmount;
+       
+       totalSpent.textContent = totalSpentAmount.toLocaleString('de-DE') + ' €';
+       totalPlanned.textContent = totalPlannedAmount.toLocaleString('de-DE') + ' €';
+       totalRemaining.textContent = remaining.toLocaleString('de-DE') + ' €';
+     }
 
     function createBudgetChart() {
       const ctx = document.getElementById('budgetChart').getContext('2d');
@@ -385,32 +413,36 @@
         }
       }
       
-      budgetChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: chartData,
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                padding: 20,
-                usePointStyle: true
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const value = context.parsed;
-                  const percentage = ((value / totalBudget) * 100).toFixed(1);
-                  return `${label}: ${value.toLocaleString('de-DE')} € (${percentage}%)`;
-                }
-              }
-            }
-          }
-        }
-      });
+             budgetChart = new Chart(ctx, {
+         type: 'doughnut',
+         data: chartData,
+         options: {
+           responsive: true,
+           maintainAspectRatio: false,
+           plugins: {
+             legend: {
+               position: 'bottom',
+               labels: {
+                 padding: 15,
+                 usePointStyle: true,
+                 font: {
+                   size: 11
+                 }
+               }
+             },
+             tooltip: {
+               callbacks: {
+                 label: function(context) {
+                   const label = context.label || '';
+                   const value = context.parsed;
+                   const percentage = ((value / totalBudget) * 100).toFixed(1);
+                   return `${label}: ${value.toLocaleString('de-DE')} € (${percentage}%)`;
+                 }
+               }
+             }
+           }
+         }
+       });
     }
 
     function updateBudgetChart() {
